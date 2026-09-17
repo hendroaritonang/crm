@@ -1,0 +1,277 @@
+// Prisma schema - CRM ISP MVP (MySQL)
+// DB: MySQL 8 di VPS, dev lokal bisa MySQL Homebrew.
+// INET/CIDR Postgres diganti String + validasi di app (Zod + ipaddr check).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  owner
+  admin
+  noc
+}
+
+enum PelangganStatus {
+  prospek
+  aktif
+  nonaktif
+  isolir
+  berhenti
+}
+
+enum IpStatus {
+  available
+  assigned
+  reserved
+  blocked
+}
+
+enum TiketStatus {
+  open
+  progress
+  resolved
+  closed
+}
+
+enum InvoiceStatus {
+  unpaid
+  paid
+  overdue
+  cancel
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  name         String    @db.VarChar(100)
+  email        String    @unique @db.VarChar(150)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  role         Role      @default(admin)
+  aktif        Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  assignedIps  IpAddress[]  @relation("AssignedBy")
+  ipHistory    IpHistory[]
+  tiketAssign  Tiket[]      @relation("Assignee")
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Paket {
+  id        Int        @id @default(autoincrement())
+  nama      String     @db.VarChar(100)
+  downMbps  Int        @map("down_mbps")
+  upMbps    Int        @map("up_mbps")
+  harga     Int
+  tipe      String     @default("rumahan") @db.VarChar(20)
+  aktif     Boolean    @default(true)
+  createdAt DateTime   @default(now()) @map("created_at")
+  pelanggan Pelanggan[]
+
+  @@map("pakets")
+}
+
+model Pelanggan {
+  id            Int             @id @default(autoincrement())
+  kode          String          @unique @db.VarChar(20) // CUS-0001
+  nama          String          @db.VarChar(150)
+  tipe          String          @default("rumahan") @db.VarChar(20)
+  hp            String          @db.VarChar(20)
+  email         String?         @db.VarChar(150)
+  alamat        String          @db.Text
+  lat           Decimal?        @db.Decimal(10, 7)
+  lng           Decimal?        @db.Decimal(10, 7)
+  paketId       Int?            @map("paket_id")
+  paket         Paket?          @relation(fields: [paketId], references: [id])
+  status        PelangganStatus @default(prospek)
+  tglInstall    DateTime?       @map("tgl_install") @db.Date
+  tglJatuhTempo Int             @default(10) @map("tgl_jatuh_tempo")
+  catatan       String?         @db.Text
+  deletedAt     DateTime?       @map("deleted_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  ips         IpAddress[]
+  mrtgTargets MrtgTarget[]
+  tikets      Tiket[]
+  invoices    Invoice[]
+  ipHistory   IpHistory[]
+
+  @@index([status])
+  @@index([nama])
+  @@map("pelanggans")
+}
+
+model Subnet {
+  id        Int         @id @default(autoincrement())
+  nama      String      @db.VarChar(100)
+  cidr      String      @unique @db.VarChar(43) // 103.147.9.0/24
+  gateway   String?     @db.VarChar(45)
+  kategori  String      @db.VarChar(20) // publik|privat|management
+  vlanId    Int?        @map("vlan_id")
+  deskripsi String?     @db.Text
+  createdBy Int?        @map("created_by")
+  createdAt DateTime    @default(now()) @map("created_at")
+  ips       IpAddress[]
+
+  @@map("subnets")
+}
+
+model Perangkat {
+  id          Int          @id @default(autoincrement())
+  nama        String       @db.VarChar(100)
+  tipe        String       @db.VarChar(30)
+  ipMgmt      String       @map("ip_mgmt") @db.VarChar(45)
+  lokasi      String?      @db.VarChar(150)
+  snmpEnc     String?      @map("snmp_community_enc") @db.Text
+  apiCredEnc  String?      @map("api_cred_enc") @db.Text
+  status      String       @default("online") @db.VarChar(20)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  ips         IpAddress[]
+  mrtgTargets MrtgTarget[]
+
+  @@map("perangkats")
+}
+
+model IpAddress {
+  id          Int      @id @default(autoincrement())
+  address     String   @unique @db.VarChar(45)
+  subnetId    Int      @map("subnet_id")
+  subnet      Subnet   @relation(fields: [subnetId], references: [id])
+  status      IpStatus @default(available)
+  pelangganId Int?     @map("pelanggan_id")
+  pelanggan   Pelanggan? @relation(fields: [pelangganId], references: [id])
+  perangkatId Int?     @map("perangkat_id")
+  perangkat   Perangkat? @relation(fields: [perangkatId], references: [id])
+  tipe        String?  @db.VarChar(20)
+  hostname    String?  @db.VarChar(150)
+  catatan     String?  @db.Text
+  assignedAt  DateTime? @map("assigned_at")
+  assignedById Int?     @map("assigned_by")
+  assignedBy  User?     @relation("AssignedBy", fields: [assignedById], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  mrtgTarget MrtgTarget?
+  history    IpHistory[]
+
+  @@index([status])
+  @@index([pelangganId])
+  @@index([subnetId])
+  @@map("ip_addresses")
+}
+
+model IpHistory {
+  id          Int       @id @default(autoincrement())
+  ipAddressId Int       @map("ip_address_id")
+  ip          IpAddress @relation(fields: [ipAddressId], references: [id], onDelete: Cascade)
+  pelangganId Int?      @map("pelanggan_id")
+  pelanggan   Pelanggan? @relation(fields: [pelangganId], references: [id], onDelete: SetNull)
+  aksi        String    @db.VarChar(20)
+  alasan      String?   @db.Text
+  byUserId    Int?      @map("by_user")
+  byUser      User?     @relation(fields: [byUserId], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([ipAddressId])
+  @@map("ip_history")
+}
+
+model MrtgTarget {
+  id             Int       @id @default(autoincrement())
+  ipAddressId    Int       @unique @map("ip_address_id")
+  ip             IpAddress @relation(fields: [ipAddressId], references: [id], onDelete: Cascade)
+  pelangganId    Int?      @map("pelanggan_id")
+  pelanggan      Pelanggan? @relation(fields: [pelangganId], references: [id], onDelete: SetNull)
+  perangkatId    Int?      @map("perangkat_id")
+  perangkat      Perangkat? @relation(fields: [perangkatId], references: [id], onDelete: SetNull)
+  interfaceName  String?   @map("interface_name") @db.VarChar(100)
+  targetIdMrtg   String    @map("target_id_mrtg") @db.VarChar(150)
+  apiMode        String    @default("json") @map("api_mode") @db.VarChar(20) // json|png
+  baseUrl        String    @map("base_url") @db.Text
+  authTokenEnc   String?   @map("auth_token_enc") @db.Text
+  pngUrlTemplate String?   @map("png_url_template") @db.Text
+  aktif          Boolean   @default(true)
+  lastFetchedAt  DateTime? @map("last_fetched_at")
+  lastError      String?   @map("last_error") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([pelangganId])
+  @@map("mrtg_targets")
+}
+
+model Tiket {
+  id          Int         @id @default(autoincrement())
+  noTiket     String      @unique @map("no_tiket") @db.VarChar(20)
+  pelangganId Int         @map("pelanggan_id")
+  pelanggan   Pelanggan   @relation(fields: [pelangganId], references: [id])
+  judul       String      @db.VarChar(200)
+  kategori    String      @db.VarChar(30)
+  prioritas   String      @default("normal") @db.VarChar(10)
+  status      TiketStatus @default(open)
+  assigneeId  Int?        @map("assignee_id")
+  assignee    User?       @relation("Assignee", fields: [assigneeId], references: [id])
+  solusi      String?     @db.Text
+  createdBy   Int?        @map("created_by")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  closedAt    DateTime?   @map("closed_at")
+  komentar    TiketKomentar[]
+
+  @@index([status])
+  @@map("tikets")
+}
+
+model TiketKomentar {
+  id        Int      @id @default(autoincrement())
+  tiketId   Int      @map("tiket_id")
+  tiket     Tiket    @relation(fields: [tiketId], references: [id], onDelete: Cascade)
+  userId    Int?     @map("user_id")
+  isi       String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("tiket_komentars")
+}
+
+model Invoice {
+  id          Int           @id @default(autoincrement())
+  noInvoice   String        @unique @map("no_invoice") @db.VarChar(30)
+  pelangganId Int           @map("pelanggan_id")
+  pelanggan   Pelanggan     @relation(fields: [pelangganId], references: [id])
+  periode     String        @db.VarChar(7) // 2026-09
+  jumlah      Int
+  jatuhTempo  DateTime      @map("jatuh_tempo") @db.Date
+  status      InvoiceStatus @default(unpaid)
+  paidAt      DateTime?     @map("paid_at")
+  metode      String?       @db.VarChar(30)
+  catatan     String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@unique([pelangganId, periode])
+  @@index([status])
+  @@map("invoices")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id])
+  aksi      String   @db.VarChar(50)
+  entity    String   @db.VarChar(50)
+  entityId  String?  @map("entity_id") @db.VarChar(50)
+  beforeJson Json?    @map("before_json")
+  afterJson  Json?    @map("after_json")
+  ipAddr    String?  @map("ip_addr") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
