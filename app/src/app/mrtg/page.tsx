@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar, Topbar } from "@/components/layout";
+import clsx from "clsx";
+import { MonitorPlay } from "lucide-react";
+import { AppShell } from "@/components/layout";
+import { Card, CardHeader, Empty, PageHeader } from "@/components/ui";
 import { MrtgChart } from "@/components/mrtg-chart";
 
 type Target = {
@@ -18,30 +21,54 @@ export default function MrtgPage() {
   useEffect(() => {
     fetch("/api/mrtg/link")
       .then((r) => r.json())
-      .then((j) => j.data && setRows(j.data))
+      .then((j) => {
+        if (j.data?.length) {
+          setRows(j.data);
+          setSelected(j.data[0].id);
+        }
+      })
       .catch(() => null);
   }, []);
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Topbar />
-        <main className="grid gap-4 p-4 lg:grid-cols-3">
-          <div className="rounded border bg-white p-4">
-            <h1 className="mb-2 font-bold">Target MRTG</h1>
+    <AppShell>
+      <PageHeader
+        title="Monitoring Trafik (MRTG)"
+        subtitle="Grafik per IP/pelanggan langsung dari server MRTG via API"
+      />
+      <div className="grid items-start gap-4 xl:grid-cols-3">
+        <Card>
+          <CardHeader title="Target Terhubung" subtitle={`${rows.length} target`} />
+          <div className="max-h-[480px] space-y-1.5 overflow-y-auto p-3">
             {rows.map((r) => (
-              <button key={r.id} onClick={() => setSelected(r.id)} className={`mb-1 block w-full rounded border px-2 py-1 text-left text-sm ${selected === r.id ? "bg-zinc-900 text-white" : ""}`}>
-                {r.ip.address} — {r.pelanggan ? `${r.pelanggan.kode}` : "tanpa pelanggan"}
+              <button
+                key={r.id}
+                onClick={() => setSelected(r.id)}
+                className={clsx(
+                  "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition",
+                  selected === r.id ? "border-sky-500 bg-sky-50/60 ring-1 ring-sky-500/30" : "border-slate-200 hover:bg-slate-50"
+                )}
+              >
+                <span className={clsx("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", selected === r.id ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500")}>
+                  <MonitorPlay size={17} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-mono text-[13px] font-semibold text-slate-800">{r.ip.address}</span>
+                  <span className="block truncate text-xs text-slate-400">{r.pelanggan ? `${r.pelanggan.kode} · ${r.pelanggan.nama}` : "Tanpa pelanggan"}</span>
+                </span>
               </button>
             ))}
-            {rows.length === 0 && <p className="text-sm text-zinc-500">Belum ada target. Link via POST /api/mrtg/link.</p>}
+            {rows.length === 0 && <Empty text="Belum ada target. Link dari tab Grafik di detail pelanggan." />}
           </div>
-          <div className="lg:col-span-2">
-            {selected ? <MrtgChart targetId={selected} /> : <p className="text-sm text-zinc-500">Pilih target untuk lihat grafik.</p>}
-          </div>
-        </main>
+        </Card>
+        <div className="xl:col-span-2">
+          {selected ? (
+            <MrtgChart targetId={selected} />
+          ) : (
+            <Card><Empty text="Pilih target di kiri untuk melihat grafik." /></Card>
+          )}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

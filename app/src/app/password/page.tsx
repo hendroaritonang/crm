@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Sidebar, Topbar } from "@/components/layout";
+import { LogOut } from "lucide-react";
+import { AppShell } from "@/components/layout";
+import { Btn, Card, CardHeader, Field, Input, PageHeader } from "@/components/ui";
 
 export default function PasswordPage() {
   const [oldPw, setOldPw] = useState("");
@@ -30,21 +32,20 @@ export default function PasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Topbar />
-        <main className="grid max-w-lg gap-4 p-4">
-          <form onSubmit={submit} className="rounded border bg-white p-4">
-            <h1 className="mb-2 font-bold">Ganti Password</h1>
-            <input className="mb-2 w-full rounded border px-3 py-2 text-sm" type="password" placeholder="Password lama" value={oldPw} onChange={(e) => setOldPw(e.target.value)} required />
-            <input className="mb-3 w-full rounded border px-3 py-2 text-sm" type="password" placeholder="Password baru min 6" value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
-            <button className="w-full rounded bg-zinc-900 py-2 text-sm text-white">Simpan</button>
-            {msg && <p className="mt-2 text-sm text-zinc-600">{msg}</p>}
+    <AppShell>
+      <PageHeader title="Akun Saya" subtitle="Ganti password dan keluar" />
+      <div className="grid max-w-lg gap-4">
+        <Card>
+          <CardHeader title="Ganti Password" />
+          <form onSubmit={submit} className="space-y-3 p-5">
+            <Field label="Password lama"><Input type="password" value={oldPw} onChange={(e) => setOldPw(e.target.value)} required /></Field>
+            <Field label="Password baru (min 6 karakter)"><Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required /></Field>
+            {msg && <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700">{msg}</p>}
+            <Btn variant="primary" className="w-full">Simpan Password</Btn>
           </form>
-          <button onClick={logout} className="rounded border bg-white px-4 py-2 text-sm text-red-600">Logout</button>
-        </main>
+        </Card>
+        <Btn variant="danger" onClick={logout}><LogOut size={15} /> Logout dari CRM</Btn>
       </div>
-    </div>
+    </AppShell>
   );
 }

@@ -2,6 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Wifi } from "lucide-react";
+import { Btn, Input, Field } from "@/components/ui";
 
 function LoginForm() {
   const router = useRouter();
@@ -31,46 +33,41 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="w-full max-w-sm rounded bg-white p-6">
-      <h1 className="text-lg font-bold">CRM ISP — Login</h1>
-      <p className="mb-4 text-xs text-zinc-500">Seed: owner@isp.local / admin123</p>
-      <label className="mb-2 block text-sm">
-        Email
-        <input
-          className="mt-1 w-full rounded border px-3 py-2"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          required
-        />
-      </label>
-      <label className="mb-4 block text-sm">
-        Password
-        <input
-          className="mt-1 w-full rounded border px-3 py-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          required
-        />
-      </label>
-      {err && <p className="mb-3 text-sm text-red-600">{err}</p>}
-      <button
-        disabled={loading}
-        className="w-full rounded bg-zinc-900 py-2 text-sm text-white disabled:opacity-50"
-      >
-        {loading ? "Masuk..." : "Masuk"}
-      </button>
-    </form>
+    <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex items-center justify-center gap-2.5">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500 text-white shadow-lg shadow-sky-500/30">
+            <Wifi size={24} strokeWidth={2.5} />
+          </span>
+          <span>
+            <span className="block text-lg font-bold leading-tight text-white">CRM ISP</span>
+            <span className="block text-xs leading-tight text-slate-400">Information System</span>
+          </span>
+        </div>
+        <form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+          <h1 className="text-base font-bold text-slate-900">Masuk ke dashboard</h1>
+          <p className="mb-4 text-xs text-slate-500">Seed awal: owner@isp.local / admin123</p>
+          <Field label="Email" className="mb-3">
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+          </Field>
+          <Field label="Password" className="mb-4">
+            <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
+          </Field>
+          {err && <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{err}</p>}
+          <Btn variant="primary" className="w-full" disabled={loading}>
+            {loading ? "Memeriksa…" : "Masuk"}
+          </Btn>
+        </form>
+        <p className="mt-4 text-center text-[11px] text-slate-500">Akses internal tim ISP — jaga kerahasiaan akun</p>
+      </div>
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
-      <Suspense>
-        <LoginForm />
-      </Suspense>
-    </div>
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

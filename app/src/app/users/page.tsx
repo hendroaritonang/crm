@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar, Topbar } from "@/components/layout";
+import { Plus } from "lucide-react";
+import clsx from "clsx";
+import { AppShell } from "@/components/layout";
+import { Badge, Btn, Card, CardHeader, Empty, Field, Input, PageHeader, Select, TableShell, Td, Th } from "@/components/ui";
 
 type User = { id: number; name: string; email: string; role: string; aktif: boolean };
 
@@ -53,59 +56,68 @@ export default function UsersPage() {
     if (r.ok) load();
   }
 
-  async function resetPassword(id: number) {
-    const password = prompt("Password baru (min 6 karakter)?");
+  async function resetPassword(id: number, name: string) {
+    const password = prompt(`Password baru untuk ${name} (min 6 karakter)?`);
     if (!password) return;
     update(id, { password });
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Topbar />
-        <main className="grid gap-4 p-4 lg:grid-cols-3">
-          <form onSubmit={create} className="rounded border bg-white p-4">
-            <h1 className="mb-2 font-bold">Tambah User</h1>
-            <input className="mb-2 w-full rounded border px-3 py-2 text-sm" placeholder="Nama" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <input className="mb-2 w-full rounded border px-3 py-2 text-sm" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-            <input className="mb-2 w-full rounded border px-3 py-2 text-sm" placeholder="Password min 6" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-            <select className="mb-3 w-full rounded border px-3 py-2 text-sm" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              <option value="admin">admin</option>
-              <option value="noc">noc</option>
-              <option value="owner">owner</option>
-            </select>
-            <button className="w-full rounded bg-zinc-900 py-2 text-sm text-white">Simpan</button>
-            {msg && <p className="mt-2 text-xs text-zinc-600">{msg}</p>}
-            {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
+    <AppShell>
+      <PageHeader title="Manajemen User" subtitle="Owner: tambah user, atur role, nonaktifkan, reset password" />
+      {err && <p className="mb-4 rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700">{err}</p>}
+      <div className="grid items-start gap-4 xl:grid-cols-3">
+        <Card>
+          <CardHeader title="Tambah User" />
+          <form onSubmit={create} className="space-y-3 p-5">
+            <Field label="Nama"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>
+            <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></Field>
+            <Field label="Password awal"><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></Field>
+            <Field label="Role">
+              <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                <option value="admin">admin — operasional penuh</option>
+                <option value="noc">noc — monitoring & tiket</option>
+                <option value="owner">owner — akses penuh</option>
+              </Select>
+            </Field>
+            {msg && <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700">{msg}</p>}
+            <Btn variant="primary" className="w-full"><Plus size={15} /> Simpan User</Btn>
           </form>
-          <div className="rounded border bg-white p-4 lg:col-span-2">
-            <h2 className="mb-2 font-bold">Daftar User</h2>
-            <table className="w-full text-sm">
-              <thead><tr className="text-left text-zinc-500"><th>Nama</th><th>Role</th><th>Aktif</th><th>Aksi</th></tr></thead>
-              <tbody>
-                {rows.map((u) => (
-                  <tr key={u.id} className="border-t">
-                    <td>{u.name}<div className="text-xs text-zinc-500">{u.email}</div></td>
-                    <td>
-                      <select value={u.role} onChange={(e) => update(u.id, { role: e.target.value })} className="rounded border px-1 py-0.5">
-                        <option value="owner">owner</option>
-                        <option value="admin">admin</option>
-                        <option value="noc">noc</option>
-                      </select>
-                    </td>
-                    <td>{u.aktif ? "ya" : "tidak"}</td>
-                    <td className="flex gap-2">
-                      <button onClick={() => update(u.id, { aktif: !u.aktif })} className="text-blue-600">{u.aktif ? "Nonaktifkan" : "Aktifkan"}</button>
-                      <button onClick={() => resetPassword(u.id)} className="text-zinc-600">Reset PW</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </main>
+        </Card>
+        <Card className="xl:col-span-2">
+          <CardHeader title="Daftar User" subtitle={`${rows.length} akun`} />
+          <TableShell>
+            <thead><tr><Th>User</Th><Th>Role</Th><Th>Status</Th><Th>Aksi</Th></tr></thead>
+            <tbody>
+              {rows.map((u) => (
+                <tr key={u.id} className="transition hover:bg-sky-50/50">
+                  <Td>
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700">{u.name.charAt(0).toUpperCase()}</span>
+                      <span><span className="block font-medium text-slate-800">{u.name}</span><span className="block text-xs text-slate-400">{u.email}</span></span>
+                    </div>
+                  </Td>
+                  <Td>
+                    <Select value={u.role} onChange={(e) => update(u.id, { role: e.target.value })} className={clsx("w-28 py-1 text-xs")}>
+                      <option value="owner">owner</option>
+                      <option value="admin">admin</option>
+                      <option value="noc">noc</option>
+                    </Select>
+                  </Td>
+                  <Td><Badge value={u.aktif ? "aktif" : "nonaktif"} /></Td>
+                  <Td>
+                    <div className="flex gap-1.5">
+                      <Btn size="sm" onClick={() => update(u.id, { aktif: !u.aktif })}>{u.aktif ? "Nonaktifkan" : "Aktifkan"}</Btn>
+                      <Btn size="sm" onClick={() => resetPassword(u.id, u.name)}>Reset PW</Btn>
+                    </div>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableShell>
+          {rows.length === 0 && !err && <Empty text="Belum ada user." />}
+        </Card>
       </div>
-    </div>
+    </AppShell>
   );
 }

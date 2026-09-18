@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar, Topbar } from "@/components/layout";
+import { Plus } from "lucide-react";
+import { AppShell } from "@/components/layout";
+import { Badge, Btn, Card, Empty, Input, PageHeader, TableShell, Td, Th } from "@/components/ui";
+
+type Inv = { id: number; noInvoice: string; jumlah: number; status: string; pelanggan: { nama: string } };
 
 export default function BillingPage() {
   const [periode, setPeriode] = useState("2026-09");
-  const [rows, setRows] = useState<{ id: number; noInvoice: string; jumlah: number; status: string; pelanggan: { nama: string } }[]>([]);
+  const [rows, setRows] = useState<Inv[]>([]);
   const [msg, setMsg] = useState("");
 
   async function load() {
@@ -20,49 +24,56 @@ export default function BillingPage() {
   }, []);
 
   async function generate() {
+    if (!confirm(`Generate invoice periode ${periode} untuk semua pelanggan aktif?`)) return;
     const r = await fetch("/api/invoice", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ periode }),
     });
     const j = await r.json();
-    setMsg(r.ok ? `Dibuat ${j.created}, skip ${j.skipped}` : j.message);
+    setMsg(r.ok ? `Berhasil dibuat ${j.created}, lewati ${j.skipped} (sudah ada)` : j.message);
     load();
   }
 
-  async function lunas(id: number) {
+  async function lunas(id: number, no: string) {
+    if (!confirm(`Tandai ${no} lunas?`)) return;
     await fetch(`/api/invoice/${id}/lunas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
     load();
   }
 
+  const total = rows.reduce((a, r) => a + r.jumlah, 0);
+  const overdue = rows.filter((r) => r.status !== "paid").length;
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Topbar />
-        <main className="p-4">
-          <div className="mb-2 flex gap-2">
-            <input className="rounded border px-2 py-1 text-sm" value={periode} onChange={(e) => setPeriode(e.target.value)} />
-            <button onClick={load} className="rounded border px-3 text-sm">Filter</button>
-            <button onClick={generate} className="rounded bg-zinc-900 px-3 text-sm text-white">Generate</button>
-            {msg && <span className="text-sm text-zinc-600">{msg}</span>}
-          </div>
-          <table className="w-full rounded border bg-white text-sm">
-            <thead><tr className="text-left text-zinc-500"><th className="p-2">Invoice</th><th>Pelanggan</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="p-2">{r.noInvoice}</td>
-                  <td>{r.pelanggan.nama}</td>
-                  <td>Rp{r.jumlah.toLocaleString("id-ID")}</td>
-                  <td>{r.status}</td>
-                  <td className="p-2">{r.status !== "paid" && <button onClick={() => lunas(r.id)} className="text-green-600">Lunas</button>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </main>
-      </div>
-    </div>
+    <AppShell>
+      <PageHeader
+        title="Billing"
+        subtitle={`${rows.length} invoice · ${overdue} belum lunas · total Rp${total.toLocaleString("id-ID")}`}
+        actions={<Btn variant="primary" size="sm" onClick={generate}><Plus size={15} /> Generate {periode}</Btn>}
+      />
+      {msg && <p className="mb-4 rounded-xl bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-700">{msg}</p>}
+      <Card>
+        <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3">
+          <span className="text-xs font-medium text-slate-500">Periode</span>
+          <Input value={periode} onChange={(e) => setPeriode(e.target.value)} className="w-32" placeholder="2026-09" />
+          <Btn size="sm" onClick={load}>Tampilkan</Btn>
+        </div>
+        <TableShell>
+          <thead><tr><Th>Invoice</Th><Th>Pelanggan</Th><Th>Jumlah</Th><Th>Status</Th><Th>Aksi</Th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="transition hover:bg-sky-50/50">
+                <Td className="font-mono text-xs font-semibold text-sky-700">{r.noInvoice}</Td>
+                <Td className="font-medium text-slate-800">{r.pelanggan.nama}</Td>
+                <Td className="font-semibold text-slate-800">Rp{r.jumlah.toLocaleString("id-ID")}</Td>
+                <Td><Badge value={r.status} /></Td>
+                <Td>{r.status !== "paid" && <Btn size="sm" variant="success" onClick={() => lunas(r.id, r.noInvoice)}>Lunas</Btn>}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </TableShell>
+        {rows.length === 0 && <Empty text="Belum ada invoice periode ini. Klik Generate." />}
+      </Card>
+    </AppShell>
   );
 }

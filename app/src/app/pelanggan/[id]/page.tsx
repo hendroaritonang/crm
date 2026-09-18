@@ -2,7 +2,10 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Sidebar, Topbar } from "@/components/layout";
+import { ArrowLeft, Link2, MapPin, Phone, Unlink } from "lucide-react";
+import clsx from "clsx";
+import { AppShell } from "@/components/layout";
+import { Badge, Btn, Card, CardHeader, Empty, Field, Input, Select, Textarea, TableShell, Td, Th } from "@/components/ui";
 import { MrtgChart } from "@/components/mrtg-chart";
 
 type Detail = {
@@ -29,11 +32,18 @@ type Detail = {
   tikets: { id: number; noTiket: string; judul: string; status: string }[];
 };
 
-const TABS = ["info", "ip", "grafik", "tagihan", "tiket", "log"] as const;
+const TABS = [
+  { key: "info", label: "Info" },
+  { key: "ip", label: "IP" },
+  { key: "grafik", label: "Grafik MRTG" },
+  { key: "tagihan", label: "Tagihan" },
+  { key: "tiket", label: "Tiket" },
+  { key: "log", label: "Log" },
+] as const;
 
 export default function DetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [tab, setTab] = useState<(typeof TABS)[number]>("info");
+  const [tab, setTab] = useState<string>("info");
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
@@ -52,58 +62,95 @@ export default function DetailPage({ params }: { params: Promise<{ id: string }>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  if (err) return <div className="p-8 text-sm text-red-600">{err} <Link href="/pelanggan" className="underline">Kembali</Link></div>;
+  if (err)
+    return (
+      <AppShell>
+        <p className="text-sm text-rose-600">{err} <Link href="/pelanggan" className="underline">Kembali</Link></p>
+      </AppShell>
+    );
   if (!d)
     return (
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <div className="flex flex-1 flex-col"><Topbar /><main className="p-4 text-sm text-zinc-500">Memuat...</main></div>
-      </div>
+      <AppShell>
+        <p className="text-sm text-slate-400">Memuat data pelanggan…</p>
+      </AppShell>
     );
 
+  const counts: Record<string, number> = { ip: d.ips.length, tagihan: d.invoices.length, tiket: d.tikets.length };
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Topbar />
-        <main className="p-4">
-          <Link href="/pelanggan" className="text-xs text-zinc-500 underline">← Kembali ke list</Link>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold">[{d.kode}] {d.nama}</h1>
-            <span className="rounded bg-zinc-900 px-2 py-0.5 text-xs text-white">{d.status}</span>
-            <span className="text-sm text-zinc-500">{d.paket ? `${d.paket.nama} Rp${d.paket.harga.toLocaleString("id-ID")}` : "Tanpa paket"}</span>
-          </div>
-          <div className="mt-1 text-sm text-zinc-600">{d.hp} · {d.alamat}</div>
+    <AppShell>
+      <Link href="/pelanggan" className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-sky-700">
+        <ArrowLeft size={14} /> Kembali ke daftar
+      </Link>
 
-          <div className="mt-3 flex gap-1 border-b">
-            {TABS.map((t) => (
-              <button
-                key={t}
-                onClick={() => { setTab(t); setMsg(""); }}
-                className={`px-3 py-2 text-sm capitalize ${tab === t ? "border-b-2 border-zinc-900 font-bold" : "text-zinc-500"}`}
-              >
-                {t === "ip" ? `IP (${d.ips.length})` : t === "tagihan" ? `Tagihan (${d.invoices.length})` : t === "tiket" ? `Tiket (${d.tikets.length})` : t}
-              </button>
-            ))}
+      <Card className="mb-4 p-5">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-xl font-bold text-white shadow-md shadow-sky-500/25">
+            {d.nama.charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">{d.nama}</h1>
+              <Badge value={d.status} />
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-600">{d.kode}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[13px] text-slate-500">
+              <span className="inline-flex items-center gap-1"><Phone size={13} /> {d.hp}</span>
+              <span className="inline-flex items-center gap-1"><MapPin size={13} /> {d.alamat}</span>
+            </div>
           </div>
-
-          {msg && <p className="mt-2 text-sm text-zinc-600">{msg}</p>}
-
-          <div className="mt-4">
-            {tab === "info" && <TabInfo d={d} reload={load} setMsg={setMsg} />}
-            {tab === "ip" && <TabIp d={d} reload={load} setMsg={setMsg} />}
-            {tab === "grafik" && <TabGrafik d={d} reload={load} setMsg={setMsg} />}
-            {tab === "tagihan" && <TabTagihan d={d} reload={load} />}
-            {tab === "tiket" && <TabTiket d={d} reload={load} setMsg={setMsg} />}
-            {tab === "log" && <TabLog id={d.id} />}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-slate-50 px-4 py-2.5">
+              <p className="text-lg font-bold text-slate-900">{d.ips.length}</p>
+              <p className="text-[11px] text-slate-500">IP</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-2.5">
+              <p className="text-lg font-bold text-slate-900">{d.invoices.filter((i) => i.status !== "paid").length}</p>
+              <p className="text-[11px] text-slate-500">Blm lunas</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-2.5">
+              <p className="text-lg font-bold text-slate-900">{d.tikets.length}</p>
+              <p className="text-[11px] text-slate-500">Tiket</p>
+            </div>
           </div>
-        </main>
+        </div>
+        <p className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-600">
+          Paket: <b>{d.paket ? `${d.paket.nama} — Rp${d.paket.harga.toLocaleString("id-ID")}` : "belum diset"}</b>
+          <span className="text-slate-400"> · Jatuh tempo tiap tanggal {d.tglJatuhTempo}</span>
+        </p>
+      </Card>
+
+      <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-slate-200/60 p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => { setTab(t.key); setMsg(""); }}
+            className={clsx(
+              "flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-[13px] font-medium transition",
+              tab === t.key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+            )}
+          >
+            {t.label}
+            {counts[t.key] !== undefined && counts[t.key]! > 0 && (
+              <span className="ml-1.5 rounded-full bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700">{counts[t.key]}</span>
+            )}
+          </button>
+        ))}
       </div>
-    </div>
+
+      {msg && <p className="mb-4 rounded-xl bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-700">{msg}</p>}
+
+      {tab === "info" && <TabInfo d={d} reload={load} setMsg={setMsg} />}
+      {tab === "ip" && <TabIp d={d} reload={load} setMsg={setMsg} />}
+      {tab === "grafik" && <TabGrafik d={d} reload={load} setMsg={setMsg} />}
+      {tab === "tagihan" && <TabTagihan d={d} reload={load} />}
+      {tab === "tiket" && <TabTiket d={d} reload={load} setMsg={setMsg} />}
+      {tab === "log" && <TabLog id={d.id} />}
+    </AppShell>
   );
 }
 
-/* ---------- Tab Info: edit ---------- */
+/* ---------- Tab Info ---------- */
 function TabInfo({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (s: string) => void }) {
   const [form, setForm] = useState({ nama: d.nama, hp: d.hp, alamat: d.alamat, status: d.status, catatan: d.catatan ?? "" });
   const [pakets, setPakets] = useState<{ id: number; nama: string }[]>([]);
@@ -121,35 +168,36 @@ function TabInfo({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg:
       body: JSON.stringify({ ...form, paket_id: paketId ? Number(paketId) : null, catatan: form.catatan || null }),
     });
     const j = await r.json();
-    setMsg(r.ok ? "Tersimpan" : j.message ?? "Gagal");
+    setMsg(r.ok ? "Data pelanggan tersimpan" : j.message ?? "Gagal");
     if (r.ok) reload();
   }
 
   return (
-    <form onSubmit={save} className="max-w-lg rounded border bg-white p-4">
-      <label className="mb-2 block text-sm">Nama<input className="mt-1 w-full rounded border px-3 py-2" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></label>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="mb-2 block text-sm">HP<input className="mt-1 w-full rounded border px-3 py-2" value={form.hp} onChange={(e) => setForm({ ...form, hp: e.target.value })} /></label>
-        <label className="mb-2 block text-sm">Status
-          <select className="mt-1 w-full rounded border px-3 py-2" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+    <Card className="max-w-2xl">
+      <CardHeader title="Data Pelanggan" subtitle="Perubahan tercatat di audit log" />
+      <form onSubmit={save} className="grid gap-3 p-5 sm:grid-cols-2">
+        <Field label="Nama lengkap" className="sm:col-span-2"><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></Field>
+        <Field label="No HP / WA"><Input value={form.hp} onChange={(e) => setForm({ ...form, hp: e.target.value })} /></Field>
+        <Field label="Status">
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
             {["prospek", "aktif", "nonaktif", "isolir", "berhenti"].map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </label>
-      </div>
-      <label className="mb-2 block text-sm">Alamat<input className="mt-1 w-full rounded border px-3 py-2" value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></label>
-      <label className="mb-2 block text-sm">Paket
-        <select className="mt-1 w-full rounded border px-3 py-2" value={paketId} onChange={(e) => setPaketId(e.target.value)}>
-          <option value="">— Tanpa paket —</option>
-          {pakets.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
-        </select>
-      </label>
-      <label className="mb-3 block text-sm">Catatan<textarea className="mt-1 w-full rounded border px-3 py-2" value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} /></label>
-      <button className="rounded bg-zinc-900 px-4 py-2 text-sm text-white">Simpan</button>
-    </form>
+          </Select>
+        </Field>
+        <Field label="Alamat pemasangan" className="sm:col-span-2"><Input value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></Field>
+        <Field label="Paket internet">
+          <Select value={paketId} onChange={(e) => setPaketId(e.target.value)}>
+            <option value="">— Tanpa paket —</option>
+            {pakets.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
+          </Select>
+        </Field>
+        <Field label="Catatan"><Textarea rows={2} value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} /></Field>
+        <div className="sm:col-span-2"><Btn variant="primary" type="submit">Simpan Perubahan</Btn></div>
+      </form>
+    </Card>
   );
 }
 
-/* ---------- Tab IP: assign / unassign ---------- */
+/* ---------- Tab IP ---------- */
 function TabIp({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (s: string) => void }) {
   const [q, setQ] = useState("");
   const [found, setFound] = useState<{ id: number; address: string }[]>([]);
@@ -167,51 +215,53 @@ function TabIp({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (
       body: JSON.stringify({ pelanggan_id: d.id, tipe: "WAN" }),
     });
     const j = await r.json();
-    setMsg(r.ok ? `Assigned ${j.address}` : j.message);
+    setMsg(r.ok ? `IP ${j.address} terpasang ke ${d.kode}` : j.message);
     if (r.ok) reload();
   }
 
-  async function unassign(ipId: number) {
-    if (!confirm("Unassign IP ini dari pelanggan?")) return;
+  async function unassign(ipId: number, address: string) {
+    if (!confirm(`Lepas ${address} dari ${d.kode}?`)) return;
     await fetch(`/api/ip/${ipId}/assign`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: "{}" });
     reload();
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-bold">IP terpasang ({d.ips.length})</h2>
-        <table className="w-full text-sm">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader title={`IP Terpasang (${d.ips.length})`} />
+        <TableShell>
           <tbody>
             {d.ips.map((ip) => (
-              <tr key={ip.id} className="border-t">
-                <td className="py-1">{ip.address}<div className="text-xs text-zinc-500">{ip.tipe ?? ""} {ip.hostname ?? ""}</div></td>
-                <td>{ip.mrtgTarget ? "linked" : "no-mrtg"}</td>
-                <td><button onClick={() => unassign(ip.id)} className="text-sm text-red-600">Unassign</button></td>
+              <tr key={ip.id} className="transition hover:bg-sky-50/50">
+                <Td><span className="font-mono text-[13px] font-semibold">{ip.address}</span><div className="text-xs text-slate-400">{ip.tipe ?? ""} {ip.hostname ?? ""}</div></Td>
+                <Td><Badge value={ip.mrtgTarget ? "linked" : "no-mrtg"} /></Td>
+                <Td><Btn size="sm" onClick={() => unassign(ip.id, ip.address)}>Unassign</Btn></Td>
               </tr>
             ))}
-            {d.ips.length === 0 && <tr><td className="py-2 text-sm text-zinc-500">Belum ada IP.</td></tr>}
           </tbody>
-        </table>
-      </div>
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-bold">Assign IP available</h2>
-        <div className="mb-2 flex gap-2">
-          <input className="w-full rounded border px-3 py-2 text-sm" placeholder="Cari IP available, ex: 103.147.9" value={q} onChange={(e) => setQ(e.target.value)} />
-          <button onClick={search} className="rounded border px-3 text-sm">Cari</button>
+        </TableShell>
+        {d.ips.length === 0 && <Empty text="Belum ada IP terpasang." />}
+      </Card>
+      <Card>
+        <CardHeader title="Pasang IP Baru" subtitle="Hanya IP available yang muncul" />
+        <div className="space-y-2 p-4">
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); search(); }}>
+            <Input placeholder="Cari IP available, ex: 103.147.9" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Btn type="submit" size="sm">Cari</Btn>
+          </form>
+          {found.map((f) => (
+            <div key={f.id} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm">
+              <span className="font-mono font-medium">{f.address}</span>
+              <Btn size="sm" variant="primary" onClick={() => assign(f.id)}>Pasang</Btn>
+            </div>
+          ))}
         </div>
-        {found.map((f) => (
-          <div key={f.id} className="mb-1 flex justify-between rounded border px-2 py-1 text-sm">
-            <span>{f.address}</span>
-            <button onClick={() => assign(f.id)} className="text-blue-600">Assign ke {d.kode}</button>
-          </div>
-        ))}
-      </div>
+      </Card>
     </div>
   );
 }
 
-/* ---------- Tab Grafik: link + chart per target ---------- */
+/* ---------- Tab Grafik ---------- */
 function TabGrafik({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (s: string) => void }) {
   const [ipId, setIpId] = useState(d.ips[0] ? String(d.ips[0].id) : "");
   const [target, setTarget] = useState("");
@@ -226,12 +276,12 @@ function TabGrafik({ d, reload, setMsg }: { d: Detail; reload: () => void; setMs
       body: JSON.stringify({ ip_address_id: Number(ipId), target_id_mrtg: target, base_url: baseUrl, api_mode: "json", ...(token ? { auth_token: token } : {}) }),
     });
     const j = await r.json();
-    setMsg(r.ok ? "Linked" : j.message ?? "Gagal");
+    setMsg(r.ok ? "IP terhubung ke MRTG" : j.message ?? "Gagal");
     if (r.ok) reload();
   }
 
   async function unlink(targetId: number) {
-    if (!confirm("Unlink target MRTG ini?")) return;
+    if (!confirm("Putus hubungan target MRTG ini?")) return;
     await fetch(`/api/mrtg/${targetId}`, { method: "DELETE" });
     reload();
   }
@@ -240,30 +290,23 @@ function TabGrafik({ d, reload, setMsg }: { d: Detail; reload: () => void; setMs
 
   return (
     <div className="grid gap-4">
-      <form onSubmit={link} className="flex flex-wrap items-end gap-2 rounded border bg-white p-4">
-        <label className="text-sm">IP
-          <select className="ml-1 rounded border px-2 py-1" value={ipId} onChange={(e) => setIpId(e.target.value)}>
-            {d.ips.map((i) => <option key={i.id} value={i.id}>{i.address}</option>)}
-          </select>
-        </label>
-        <label className="text-sm">Target ID di MRTG
-          <input className="ml-1 rounded border px-2 py-1" placeholder="103.147.9.45" value={target} onChange={(e) => setTarget(e.target.value)} required />
-        </label>
-        <label className="text-sm">Base URL
-          <input className="ml-1 w-64 rounded border px-2 py-1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required />
-        </label>
-        <label className="text-sm">Token MRTG (opsional)
-          <input className="ml-1 rounded border px-2 py-1" type="password" placeholder="disimpan terenkripsi" value={token} onChange={(e) => setToken(e.target.value)} />
-        </label>
-        <button className="rounded bg-zinc-900 px-3 py-1 text-sm text-white">Link</button>
-      </form>
-      {linked.length === 0 && <p className="text-sm text-zinc-500">Belum ada IP yang di-link ke MRTG. Link dulu via form di atas.</p>}
+      <Card>
+        <CardHeader title="Hubungkan ke MRTG" subtitle="Token disimpan terenkripsi, tidak tampil lagi setelah disimpan" />
+        <form onSubmit={link} className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5">
+          <Field label="IP"><Select value={ipId} onChange={(e) => setIpId(e.target.value)}>{d.ips.map((i) => <option key={i.id} value={i.id}>{i.address}</option>)}</Select></Field>
+          <Field label="Target ID di MRTG"><Input placeholder="103.147.9.45" value={target} onChange={(e) => setTarget(e.target.value)} required /></Field>
+          <Field label="Base URL" className="lg:col-span-2"><Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required /></Field>
+          <Field label="Token (opsional)"><Input type="password" placeholder="••••••" value={token} onChange={(e) => setToken(e.target.value)} /></Field>
+          <div className="flex items-end sm:col-span-2 lg:col-span-5"><Btn variant="primary" type="submit"><Link2 size={15} /> Hubungkan</Btn></div>
+        </form>
+      </Card>
+      {linked.length === 0 && <Card><Empty text="Belum ada IP yang terhubung ke MRTG." /></Card>}
       {linked.map((ip) => (
         <div key={ip.id}>
-          <div className="mb-1 flex items-center gap-2 text-sm">
-            <b>{ip.address}</b>
-            <span className="text-zinc-500">target {ip.mrtgTarget!.targetIdMrtg}</span>
-            <button onClick={() => unlink(ip.mrtgTarget!.id)} className="text-red-600">Unlink</button>
+          <div className="mb-2 flex items-center gap-2 text-sm">
+            <span className="font-mono font-semibold text-slate-800">{ip.address}</span>
+            <span className="text-xs text-slate-400">target {ip.mrtgTarget!.targetIdMrtg}</span>
+            <button onClick={() => unlink(ip.mrtgTarget!.id)} className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline"><Unlink size={13} /> Putus</button>
           </div>
           <MrtgChart targetId={ip.mrtgTarget!.id} />
         </div>
@@ -274,30 +317,34 @@ function TabGrafik({ d, reload, setMsg }: { d: Detail; reload: () => void; setMs
 
 /* ---------- Tab Tagihan ---------- */
 function TabTagihan({ d, reload }: { d: Detail; reload: () => void }) {
-  async function lunas(id: number) {
+  async function lunas(id: number, no: string) {
+    if (!confirm(`Tandai ${no} lunas?`)) return;
     await fetch(`/api/invoice/${id}/lunas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
     reload();
   }
   return (
-    <div className="rounded border bg-white p-4">
-      <table className="w-full text-sm">
-        <thead><tr className="text-left text-zinc-500"><th>Invoice</th><th>Periode</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
+    <Card>
+      <CardHeader title={`Tagihan (${d.invoices.length})`} subtitle="Generate invoice dari menu Billing" />
+      <TableShell>
+        <thead><tr><Th>Invoice</Th><Th>Periode</Th><Th>Jumlah</Th><Th>Status</Th><Th>Aksi</Th></tr></thead>
         <tbody>
           {d.invoices.map((i) => (
-            <tr key={i.id} className="border-t">
-              <td>{i.noInvoice}</td><td>{i.periode}</td>
-              <td>Rp{i.jumlah.toLocaleString("id-ID")}</td><td>{i.status}</td>
-              <td>{i.status !== "paid" && <button onClick={() => lunas(i.id)} className="text-green-600">Lunas</button>}</td>
+            <tr key={i.id} className="transition hover:bg-sky-50/50">
+              <Td className="font-mono text-xs font-semibold text-sky-700">{i.noInvoice}</Td>
+              <Td>{i.periode}</Td>
+              <Td className="font-semibold">Rp{i.jumlah.toLocaleString("id-ID")}</Td>
+              <Td><Badge value={i.status} /></Td>
+              <Td>{i.status !== "paid" && <Btn size="sm" variant="success" onClick={() => lunas(i.id, i.noInvoice)}>Lunas</Btn>}</Td>
             </tr>
           ))}
         </tbody>
-      </table>
-      {d.invoices.length === 0 && <p className="mt-2 text-sm text-zinc-500">Belum ada invoice. Generate dari menu Billing.</p>}
-    </div>
+      </TableShell>
+      {d.invoices.length === 0 && <Empty text="Belum ada invoice." />}
+    </Card>
   );
 }
 
-/* ---------- Tab Tiket: list + buat ---------- */
+/* ---------- Tab Tiket ---------- */
 function TabTiket({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (s: string) => void }) {
   const [judul, setJudul] = useState("");
   async function create(e: React.FormEvent) {
@@ -315,26 +362,32 @@ function TabTiket({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg
     }
   }
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-bold">Riwayat tiket</h2>
-        {d.tikets.map((t) => (
-          <div key={t.id} className="mb-1 flex justify-between border-t py-1 text-sm">
-            <span>{t.noTiket} — {t.judul}</span><span>{t.status}</span>
-          </div>
-        ))}
-        {d.tikets.length === 0 && <p className="text-sm text-zinc-500">Belum ada tiket.</p>}
-      </div>
-      <form onSubmit={create} className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-bold">Buat tiket</h2>
-        <input className="mb-2 w-full rounded border px-3 py-2 text-sm" placeholder="Judul, ex: Internet lambat" value={judul} onChange={(e) => setJudul(e.target.value)} required />
-        <button className="rounded bg-zinc-900 px-4 py-2 text-sm text-white">Buat</button>
-      </form>
+    <div className="grid items-start gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader title={`Riwayat Tiket (${d.tikets.length})`} />
+        <div className="divide-y divide-slate-100">
+          {d.tikets.map((t) => (
+            <div key={t.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+              <span className="font-mono text-xs font-semibold text-sky-700">{t.noTiket}</span>
+              <span className="min-w-0 flex-1 truncate text-slate-700">{t.judul}</span>
+              <Badge value={t.status} />
+            </div>
+          ))}
+        </div>
+        {d.tikets.length === 0 && <Empty text="Belum ada tiket." />}
+      </Card>
+      <Card>
+        <CardHeader title="Buat Tiket Baru" subtitle={`Otomatis terisi ${d.kode}`} />
+        <form onSubmit={create} className="flex gap-2 p-4">
+          <Input placeholder="Judul gangguan, ex: Internet lambat sejak pagi" value={judul} onChange={(e) => setJudul(e.target.value)} required />
+          <Btn variant="primary" type="submit">Buat</Btn>
+        </form>
+      </Card>
     </div>
   );
 }
 
-/* ---------- Tab Log: audit + riwayat IP ---------- */
+/* ---------- Tab Log ---------- */
 function TabLog({ id }: { id: number }) {
   const [audit, setAudit] = useState<{ id: number; aksi: string; createdAt: string; user: { name: string } | null }[]>([]);
   const [hist, setHist] = useState<{ id: number; aksi: string; alasan: string | null; createdAt: string; ip: { address: string }; byUser: { name: string } | null }[]>([]);
@@ -343,21 +396,29 @@ function TabLog({ id }: { id: number }) {
     fetch(`/api/pelanggan/${id}/history`).then((r) => r.json()).then((j) => j.data && setHist(j.data)).catch(() => null);
   }, [id]);
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-bold">Audit pelanggan</h2>
-        {audit.map((a) => (
-          <div key={a.id} className="border-t py-1 text-sm">{new Date(a.createdAt).toLocaleString("id-ID")} — {a.aksi} oleh {a.user?.name ?? "-"}</div>
-        ))}
-        {audit.length === 0 && <p className="text-sm text-zinc-500">Belum ada log.</p>}
-      </div>
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-bold">Riwayat IP</h2>
-        {hist.map((h) => (
-          <div key={h.id} className="border-t py-1 text-sm">{new Date(h.createdAt).toLocaleString("id-ID")} — {h.ip.address} {h.aksi} oleh {h.byUser?.name ?? "-"} {h.alasan ?? ""}</div>
-        ))}
-        {hist.length === 0 && <p className="text-sm text-zinc-500">Belum ada riwayat IP.</p>}
-      </div>
+    <div className="grid items-start gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader title="Audit Pelanggan" />
+        <div className="divide-y divide-slate-100">
+          {audit.map((a) => (
+            <div key={a.id} className="px-5 py-2 text-sm text-slate-600">
+              <span className="text-xs text-slate-400">{new Date(a.createdAt).toLocaleString("id-ID")}</span> — <code className="rounded bg-slate-100 px-1 font-mono text-xs">{a.aksi}</code> oleh {a.user?.name ?? "-"}
+            </div>
+          ))}
+        </div>
+        {audit.length === 0 && <Empty text="Belum ada log." />}
+      </Card>
+      <Card>
+        <CardHeader title="Riwayat IP" />
+        <div className="divide-y divide-slate-100">
+          {hist.map((h) => (
+            <div key={h.id} className="px-5 py-2 text-sm text-slate-600">
+              <span className="text-xs text-slate-400">{new Date(h.createdAt).toLocaleString("id-ID")}</span> — <span className="font-mono">{h.ip.address}</span> {h.aksi} oleh {h.byUser?.name ?? "-"}
+            </div>
+          ))}
+        </div>
+        {hist.length === 0 && <Empty text="Belum ada riwayat IP." />}
+      </Card>
     </div>
   );
 }

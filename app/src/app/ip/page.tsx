@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar, Topbar } from "@/components/layout";
+import { Download, Plus, RefreshCw } from "lucide-react";
+import clsx from "clsx";
+import { AppShell } from "@/components/layout";
+import { Badge, Btn, Card, CardHeader, Empty, Field, Input, LinkBtn, PageHeader, TableShell, Td, Th } from "@/components/ui";
 
 type Subnet = { id: number; nama: string; cidr: string; total: number; used: number; free: number };
 type Ip = {
@@ -18,7 +21,6 @@ export default function IpPage() {
   const [rows, setRows] = useState<Ip[]>([]);
   const [cidr, setCidr] = useState("");
   const [nama, setNama] = useState("");
-  const [assignId, setAssignId] = useState("");
   const [msg, setMsg] = useState("");
 
   async function loadSubnets() {
@@ -55,7 +57,7 @@ export default function IpPage() {
       body: JSON.stringify({ nama, cidr, kategori: "publik" }),
     });
     const j = await r.json();
-    setMsg(r.ok ? `Subnet ${j.cidr} (${j.total} host)` : j.message);
+    setMsg(r.ok ? `Subnet ${j.cidr} dibuat (${j.total} host)` : j.message);
     if (r.ok) {
       setCidr("");
       setNama("");
@@ -63,8 +65,8 @@ export default function IpPage() {
     }
   }
 
-  async function assign(id: number) {
-    const pelanggan_id = Number(prompt("ID pelanggan (angka)?") ?? "");
+  async function assign(id: number, address: string) {
+    const pelanggan_id = Number(prompt(`Assign ${address} ke ID pelanggan berapa? (lihat di menu Pelanggan)`) ?? "");
     if (!pelanggan_id) return;
     const r = await fetch(`/api/ip/${id}/assign`, {
       method: "POST",
@@ -76,60 +78,107 @@ export default function IpPage() {
     loadIps();
   }
 
-  async function unassign(id: number) {
-    if (!confirm("Unassign IP ini?")) return;
+  async function unassign(id: number, address: string) {
+    if (!confirm(`Lepas ${address} dari pelanggannya?`)) return;
     await fetch(`/api/ip/${id}/assign`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: "{}" });
     loadIps();
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Topbar />
-        <main className="grid gap-4 p-4 lg:grid-cols-3">
-          <form onSubmit={addSubnet} className="rounded border bg-white p-4">
-            <h1 className="mb-2 font-bold">Tambah Subnet</h1>
-            <input className="mb-2 w-full rounded border px-3 py-2 text-sm" placeholder="Nama (Pool Publik 1)" value={nama} onChange={(e) => setNama(e.target.value)} required />
-            <input className="mb-2 w-full rounded border px-3 py-2 text-sm" placeholder="CIDR 103.147.9.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)} required />
-            {msg && <p className="mb-2 text-xs text-zinc-600">{msg}</p>}
-            <button className="w-full rounded bg-zinc-900 py-2 text-sm text-white">Simpan dan Generate</button>
-            <div className="mt-4 text-sm">
-              {subnets.map((s) => (
-                <button type="button" key={s.id} onClick={() => setSubnetId(String(s.id))} className={`mb-1 block w-full rounded border px-2 py-1 text-left ${String(s.id) === subnetId ? "bg-zinc-900 text-white" : ""}`}>
-                  {s.nama} {s.cidr} ({s.used}/{s.total})
-                </button>
-              ))}
+    <AppShell>
+      <PageHeader
+        title="IP & Subnet"
+        subtitle="Tambah subnet CIDR, assign IP ke pelanggan, anti double-assign"
+        actions={subnetId && <LinkBtn href={`/api/ip/export?subnetId=${subnetId}`} variant="secondary" size="sm"><Download size={14} /> Export CSV</LinkBtn>}
+      />
+      <div className="grid items-start gap-4 xl:grid-cols-3">
+        <div className="space-y-4">
+          <Card>
+            <CardHeader title="Tambah Subnet" subtitle="Host IP dibuat otomatis" />
+            <form onSubmit={addSubnet} className="space-y-3 p-5">
+              <Field label="Nama pool"><Input placeholder="Pool Publik 1" value={nama} onChange={(e) => setNama(e.target.value)} required /></Field>
+              <Field label="CIDR"><Input placeholder="103.147.9.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)} required /></Field>
+              {msg && <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700">{msg}</p>}
+              <Btn variant="primary" className="w-full"><Plus size={15} /> Simpan & Generate IP</Btn>
+            </form>
+          </Card>
+          <Card>
+            <CardHeader title="Subnet" subtitle="Pilih untuk lihat IP-nya" />
+            <div className="space-y-2 p-4">
+              {subnets.map((s) => {
+                const pct = s.total ? Math.round((s.used / s.total) * 100) : 0;
+                const active = String(s.id) === subnetId;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSubnetId(String(s.id))}
+                    className={clsx(
+                      "block w-full rounded-xl border p-3 text-left transition",
+                      active ? "border-sky-500 bg-sky-50/60 ring-1 ring-sky-500/30" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-800">{s.nama}</span>
+                      <span className="font-mono text-xs text-slate-500">{s.cidr}</span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className={clsx("h-full rounded-full", pct > 90 ? "bg-rose-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-500">{s.used}/{s.total} terpakai ({pct}%) · {s.free} free</div>
+                  </button>
+                );
+              })}
+              {subnets.length === 0 && <Empty text="Belum ada subnet. Tambahkan dulu di atas." />}
             </div>
-          </form>
-          <div className="rounded border bg-white p-4 lg:col-span-2">
-            <div className="mb-2 flex flex-wrap gap-2">
-              <select className="rounded border px-2 py-1 text-sm" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">Semua</option>
-                <option value="available">Available</option>
-                <option value="assigned">Assigned</option>
-                <option value="reserved">Reserved</option>
-              </select>
-              <input className="rounded border px-2 py-1 text-sm" placeholder="ID pelanggan untuk assign cepat" value={assignId} onChange={(e) => setAssignId(e.target.value)} />
-              <button onClick={loadIps} className="rounded border px-3 text-sm">Refresh</button>
-              <a href={subnetId ? `/api/ip/export?subnetId=${subnetId}` : "/api/ip/export"} className="rounded border px-3 py-1 text-sm">Export CSV</a>
-            </div>
-            <table className="w-full text-sm">
-              <thead><tr className="text-left text-zinc-500"><th>IP</th><th>Status</th><th>Pemilik</th><th>Aksi</th></tr></thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-t">
-                    <td>{r.address}</td>
-                    <td>{r.status}</td>
-                    <td>{r.pelanggan ? `${r.pelanggan.kode} ${r.pelanggan.nama}` : "-"}</td>
-                    <td>{r.status === "available" ? <button onClick={() => assign(r.id)} className="text-blue-600">Assign</button> : <button onClick={() => unassign(r.id)} className="text-red-600">Unassign</button>}</td>
-                  </tr>
+          </Card>
+        </div>
+
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="Daftar IP"
+            subtitle={subnetId ? `${rows.length} IP ditampilkan` : "Pilih subnet dulu"}
+            actions={
+              <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+                {["", "available", "assigned", "reserved"].map((st) => (
+                  <button
+                    key={st || "all"}
+                    onClick={() => setStatus(st)}
+                    className={clsx(
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition",
+                      status === st ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                    )}
+                  >
+                    {st === "" ? "Semua" : st}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </main>
+                <button onClick={loadIps} title="Refresh" className="rounded-md px-2 text-slate-500 hover:text-slate-800">
+                  <RefreshCw size={14} />
+                </button>
+              </div>
+            }
+          />
+          <TableShell>
+            <thead><tr><Th>IP Address</Th><Th>Status</Th><Th>Pemilik</Th><Th>Aksi</Th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="transition hover:bg-sky-50/50">
+                  <Td className="font-mono text-[13px] font-medium text-slate-800">{r.address}</Td>
+                  <Td><Badge value={r.status} /></Td>
+                  <Td className="text-slate-600">{r.pelanggan ? <span><b>{r.pelanggan.kode}</b> {r.pelanggan.nama}</span> : <span className="text-slate-300">—</span>}</Td>
+                  <Td>
+                    {r.status === "available" ? (
+                      <Btn size="sm" variant="primary" onClick={() => assign(r.id, r.address)}>Assign</Btn>
+                    ) : (
+                      <Btn size="sm" onClick={() => unassign(r.id, r.address)}>Unassign</Btn>
+                    )}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableShell>
+          {rows.length === 0 && <Empty text="Tidak ada IP pada filter ini." />}
+        </Card>
       </div>
-    </div>
+    </AppShell>
   );
 }
