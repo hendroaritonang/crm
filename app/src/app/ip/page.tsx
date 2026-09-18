@@ -22,6 +22,9 @@ export default function IpPage() {
   const [cidr, setCidr] = useState("");
   const [nama, setNama] = useState("");
   const [msg, setMsg] = useState("");
+  const [assignTarget, setAssignTarget] = useState<Ip | null>(null);
+  const [custQ, setCustQ] = useState("");
+  const [custRows, setCustRows] = useState<{ id: number; kode: string; nama: string }[]>([]);
 
   async function loadSubnets() {
     const r = await fetch("/api/subnet");
@@ -65,16 +68,30 @@ export default function IpPage() {
     }
   }
 
-  async function assign(id: number, address: string) {
-    const pelanggan_id = Number(prompt(`Assign ${address} ke ID pelanggan berapa? (lihat di menu Pelanggan)`) ?? "");
-    if (!pelanggan_id) return;
-    const r = await fetch(`/api/ip/${id}/assign`, {
+  async function searchCust() {
+    const r = await fetch(`/api/pelanggan?q=${encodeURIComponent(custQ)}&limit=10`);
+    const j = await r.json();
+    if (j.data) setCustRows(j.data);
+  }
+
+  async function doAssign(pelanggan_id: number) {
+    if (!assignTarget) return;
+    setMsg("");
+    const r = await fetch(`/api/ip/${assignTarget.id}/assign`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pelanggan_id }),
     });
-    const j = await r.json();
-    setMsg(r.ok ? `Assigned ${j.address}` : j.message);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const detail = j.errors ? ` — ${JSON.stringify(j.errors)}` : "";
+      setMsg(`Gagal: ${j.message ?? "unknown"}${detail}`);
+      return;
+    }
+    setMsg(`IP ${j.address} terpasang ke pelanggan #${pelanggan_id}`);
+    setAssignTarget(null);
+    setCustQ("");
+    setCustRows([]);
     loadIps();
   }
 
@@ -134,6 +151,7 @@ export default function IpPage() {
         </div>
 
         <Card className="xl:col-span-2">
+          {msg && <p className="border-b border-slate-100 bg-sky-50 px-5 py-2.5 text-[13px] font-medium text-sky-700">{msg}</p>}
           <CardHeader
             title="Daftar IP"
             subtitle={subnetId ? `${rows.length} IP ditampilkan` : "Pilih subnet dulu"}
@@ -167,7 +185,7 @@ export default function IpPage() {
                   <Td className="text-slate-600">{r.pelanggan ? <span><b>{r.pelanggan.kode}</b> {r.pelanggan.nama}</span> : <span className="text-slate-300">—</span>}</Td>
                   <Td>
                     {r.status === "available" ? (
-                      <Btn size="sm" variant="primary" onClick={() => assign(r.id, r.address)}>Assign</Btn>
+                      <Btn size="sm" variant="primary" onClick={() => { setAssignTarget(r); setCustQ(""); setCustRows([]); setMsg(""); }}>Assign</Btn>
                     ) : (
                       <Btn size="sm" onClick={() => unassign(r.id, r.address)}>Unassign</Btn>
                     )}
@@ -179,6 +197,29 @@ export default function IpPage() {
           {rows.length === 0 && <Empty text="Tidak ada IP pada filter ini." />}
         </Card>
       </div>
+
+      {assignTarget && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setAssignTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-slate-900">Assign <span className="font-mono">{assignTarget.address}</span> ke…</h3>
+            <p className="mb-3 text-xs text-slate-500">Cari nama / kode / HP pelanggan, lalu klik Pasang.</p>
+            <form className="mb-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); searchCust(); }}>
+              <Input placeholder="Bryan / CUS-0001 / 0877…" value={custQ} onChange={(e) => setCustQ(e.target.value)} />
+              <Btn type="submit" size="sm">Cari</Btn>
+            </form>
+            <div className="max-h-64 space-y-1.5 overflow-y-auto">
+              {custRows.map((c) => (
+                <div key={c.id} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                  <span className="min-w-0 flex-1"><b className="font-mono text-xs">{c.kode}</b> {c.nama}</span>
+                  <Btn size="sm" variant="primary" onClick={() => doAssign(c.id)}>Pasang</Btn>
+                </div>
+              ))}
+              {custRows.length === 0 && <p className="py-4 text-center text-xs text-slate-400">Ketik kata kunci lalu Cari.</p>}
+            </div>
+            <Btn className="mt-3 w-full" onClick={() => setAssignTarget(null)}>Batal</Btn>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
