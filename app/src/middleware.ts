@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { COOKIE_NAME } from "@/lib/auth";
 
-const PROTECTED = ["/", "/pelanggan", "/ip", "/mrtg", "/tiket", "/billing", "/audit", "/users", "/password"];
+const PROTECTED = ["/", "/pelanggan", "/ip", "/mrtg", "/tiket", "/billing", "/audit", "/users", "/password", "/paket"];
 
 export function middleware(req: import("next/server").NextRequest) {
   const { pathname } = req.nextUrl;
@@ -22,5 +22,5 @@ export function middleware(req: import("next/server").NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/pelanggan/:path*", "/ip/:path*", "/mrtg/:path*", "/tiket/:path*", "/billing/:path*", "/audit/:path*", "/users/:path*", "/password/:path*"],
+  matcher: ["/", "/pelanggan/:path*", "/ip/:path*", "/mrtg/:path*", "/tiket/:path*", "/billing/:path*", "/audit/:path*", "/users/:path*", "/password/:path*", "/paket/:path*"],
 };

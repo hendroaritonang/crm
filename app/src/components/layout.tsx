@@ -5,11 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Activity,
-  FileText,
-  KeyRound,
+  Bell,
+  ChevronDown,
+  CircleHelp,
+  FilePlus2,
   LayoutDashboard,
   LogOut,
   Network,
+  Plus,
   ScrollText,
   Search,
   Ticket,
@@ -21,29 +24,29 @@ import clsx from "clsx";
 
 const SECTIONS = [
   {
-    title: "Utama",
-    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }],
-  },
-  {
-    title: "Manajemen",
+    title: "CRM",
+    color: "text-violet-500",
     items: [
-      { href: "/pelanggan", label: "Pelanggan", icon: Users },
-      { href: "/ip", label: "IP & Subnet", icon: Network },
-      { href: "/mrtg", label: "MRTG", icon: Activity },
+      { href: "/pelanggan", label: "Customers", icon: Users },
+      { href: "/tiket", label: "Tickets", icon: Ticket },
+      { href: "/billing", label: "Finance", icon: Wallet },
     ],
   },
   {
-    title: "Operasional",
+    title: "Company",
+    color: "text-emerald-500",
     items: [
-      { href: "/tiket", label: "Tiket", icon: Ticket },
-      { href: "/billing", label: "Billing", icon: Wallet },
+      { href: "/ip", label: "Networking", icon: Network },
+      { href: "/mrtg", label: "Monitoring", icon: Activity },
+      { href: "/paket", label: "Tariff plans", icon: FilePlus2 },
     ],
   },
   {
-    title: "Sistem",
+    title: "System",
+    color: "text-slate-400",
     items: [
-      { href: "/audit", label: "Audit Log", icon: ScrollText },
-      { href: "/users", label: "Users", icon: KeyRound },
+      { href: "/audit", label: "Administration", icon: ScrollText },
+      { href: "/users", label: "Users", icon: Users },
     ],
   },
 ];
@@ -56,20 +59,29 @@ function isActive(pathname: string, href: string) {
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="dark-scroll flex w-60 shrink-0 flex-col overflow-y-auto bg-slate-900 text-slate-300 max-md:hidden">
-      <Link href="/" className="flex items-center gap-2.5 px-5 pb-5 pt-6">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-500/30">
-          <Wifi size={20} strokeWidth={2.5} />
+    <aside className="flex w-60 shrink-0 flex-col overflow-y-auto rounded-r-3xl border-r border-slate-200/70 bg-white max-md:hidden">
+      <Link href="/" className="flex items-center gap-2 px-5 pb-5 pt-6">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-600 text-white">
+          <Wifi size={19} strokeWidth={2.5} />
         </span>
-        <span>
-          <span className="block text-[15px] font-bold leading-tight text-white">CRM ISP</span>
-          <span className="block text-[11px] leading-tight text-slate-400">Information System</span>
+        <span className="text-xl font-extrabold tracking-tight text-slate-900">
+          CRM<span className="font-light text-rose-600">ISP</span>
         </span>
       </Link>
-      <nav className="flex-1 space-y-5 px-3 pb-6">
+      <nav className="flex-1 space-y-4 px-3 pb-6">
+        <Link
+          href="/"
+          className={clsx(
+            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+            isActive(pathname, "/") ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"
+          )}
+        >
+          <LayoutDashboard size={18} className="text-slate-500" />
+          Dashboard
+        </Link>
         {SECTIONS.map((s) => (
           <div key={s.title}>
-            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+            <p className={clsx("mb-1 px-3 text-[11px] font-bold uppercase tracking-widest", s.color)}>
               {s.title}
             </p>
             {s.items.map((it) => {
@@ -80,38 +92,44 @@ export function Sidebar() {
                   key={it.href}
                   href={it.href}
                   className={clsx(
-                    "mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition",
-                    active
-                      ? "bg-sky-500/15 text-white shadow-[inset_2px_0_0_0_#38bdf8]"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    "mb-0.5 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                    active ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-600 hover:bg-slate-50"
                   )}
                 >
-                  <Icon size={17} strokeWidth={active ? 2.25 : 2} />
-                  {it.label}
+                  <Icon size={18} className={active ? "text-rose-600" : "text-slate-400"} />
+                  <span className="flex-1">{it.label}</span>
                 </Link>
               );
             })}
           </div>
         ))}
       </nav>
-      <div className="border-t border-white/10 p-4 text-[11px] leading-relaxed text-slate-500">
-        MVP internal
-        <br />
-        owner · admin · noc
-      </div>
     </aside>
   );
 }
+
+const QUICK_ADD = [
+  { href: "/pelanggan", label: "Add customer" },
+  { href: "/tiket", label: "Add ticket" },
+  { href: "/ip", label: "Add subnet / IP" },
+  { href: "/billing", label: "Generate invoice" },
+];
 
 export function Topbar() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [me, setMe] = useState<{ name: string; role: string } | null>(null);
+  const [open, setOpen] = useState(false);
+  const [tiketCount, setTiketCount] = useState(0);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => j && setMe(j))
+      .catch(() => null);
+    fetch("/api/dashboard/summary")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j && setTiketCount(j.tiket_open ?? 0))
       .catch(() => null);
   }, []);
 
@@ -122,9 +140,9 @@ export function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur">
+    <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-slate-200/70 bg-white/95 px-5 py-3 backdrop-blur">
       <form
-        className="relative w-full max-w-md"
+        className="relative hidden w-full max-w-md sm:block"
         onSubmit={(e) => {
           e.preventDefault();
           router.push(`/pelanggan?q=${encodeURIComponent(q)}`);
@@ -134,26 +152,55 @@ export function Topbar() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Cari nama, IP, CUS-xxxx, HP… (Enter)"
-          className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+          placeholder="Search customers, IP, tickets…"
+          className="w-full rounded-full border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm focus:border-rose-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-100"
         />
       </form>
-      <div className="ml-auto flex items-center gap-3">
-        {me && (
-          <Link href="/password" className="hidden text-right sm:block">
-            <span className="block text-[13px] font-semibold leading-tight text-slate-800">{me.name}</span>
-            <span className="block text-[11px] capitalize leading-tight text-slate-400">{me.role}</span>
-          </Link>
-        )}
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-bold text-sky-700">
-          {me ? me.name.charAt(0).toUpperCase() : "?"}
-        </span>
-        <button
-          onClick={logout}
-          title="Logout"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 shadow-sm transition hover:bg-rose-50 hover:text-rose-600"
-        >
-          <LogOut size={16} />
+      <div className="ml-auto flex items-center gap-1.5">
+        <div className="relative">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            title="Quick add"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+          >
+            <Plus size={19} />
+          </button>
+          {open && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+              <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                {QUICK_ADD.map((a) => (
+                  <Link key={a.href} href={a.href} onClick={() => setOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    {a.label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <button title="Help" className="hidden h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 sm:flex">
+          <CircleHelp size={19} />
+        </button>
+        <Link href="/tiket" title="Open tickets" className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100">
+          <Bell size={19} />
+          {tiketCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+              {tiketCount}
+            </span>
+          )}
+        </Link>
+        <Link href="/password" className="ml-1 flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition hover:bg-slate-100">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-sm font-bold text-rose-700">
+            {me ? me.name.charAt(0).toUpperCase() : "?"}
+          </span>
+          <span className="hidden text-left lg:block">
+            <span className="block text-[13px] font-semibold leading-tight text-slate-800">{me?.name ?? "…"}</span>
+            <span className="block text-[11px] capitalize leading-tight text-slate-400">{me?.role ?? ""}</span>
+          </span>
+          <ChevronDown size={14} className="hidden text-slate-400 lg:block" />
+        </Link>
+        <button onClick={logout} title="Logout" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-rose-50 hover:text-rose-600">
+          <LogOut size={17} />
         </button>
       </div>
     </header>
@@ -162,15 +209,11 @@ export function Topbar() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen gap-0 bg-[#eef1f6]">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
         <main className="flex-1 p-5">{children}</main>
-        <footer className="flex items-center gap-1.5 px-5 pb-4 text-[11px] text-slate-400">
-          <FileText size={12} />
-          CRM ISP v0.1 MVP — data internal, jangan dibagikan ke luar tim
-        </footer>
       </div>
     </div>
   );
