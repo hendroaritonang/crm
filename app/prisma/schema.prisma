@@ -59,6 +59,7 @@ model User {
   assignedIps  IpAddress[]  @relation("AssignedBy")
   ipHistory    IpHistory[]
   tiketAssign  Tiket[]      @relation("Assignee")
+  tiketKomen   TiketKomentar[]
   auditLogs    AuditLog[]
 
   @@map("users")
@@ -235,6 +236,7 @@ model TiketKomentar {
   tiketId   Int      @map("tiket_id")
   tiket     Tiket    @relation(fields: [tiketId], references: [id], onDelete: Cascade)
   userId    Int?     @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   isi       String   @db.Text
   createdAt DateTime @default(now()) @map("created_at")
 

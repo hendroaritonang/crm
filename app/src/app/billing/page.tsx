@@ -10,12 +10,15 @@ type Inv = { id: number; noInvoice: string; jumlah: number; status: string; pela
 export default function BillingPage() {
   const [periode, setPeriode] = useState("2026-09");
   const [rows, setRows] = useState<Inv[]>([]);
+  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
   async function load() {
+    setLoading(true);
     const r = await fetch(`/api/invoice?periode=${periode}`);
     const j = await r.json();
     if (j.data) setRows(j.data);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -38,6 +41,14 @@ export default function BillingPage() {
   async function lunas(id: number, no: string) {
     if (!confirm(`Tandai ${no} lunas?`)) return;
     await fetch(`/api/invoice/${id}/lunas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    load();
+  }
+
+  async function cancel(id: number, no: string) {
+    if (!confirm(`Batalkan ${no}?`)) return;
+    const r = await fetch(`/api/invoice/${id}/cancel`, { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) setMsg(j.message ?? "Gagal");
     load();
   }
 
@@ -67,12 +78,18 @@ export default function BillingPage() {
                 <Td className="font-medium text-slate-800">{r.pelanggan.nama}</Td>
                 <Td className="font-semibold text-slate-800">Rp{r.jumlah.toLocaleString("id-ID")}</Td>
                 <Td><Badge value={r.status} /></Td>
-                <Td>{r.status !== "paid" && <Btn size="sm" variant="success" onClick={() => lunas(r.id, r.noInvoice)}>Lunas</Btn>}</Td>
+                <Td>
+                  <div className="flex gap-1.5">
+                    {r.status !== "paid" && r.status !== "cancel" && <Btn size="sm" variant="success" onClick={() => lunas(r.id, r.noInvoice)}>Lunas</Btn>}
+                    {r.status !== "paid" && r.status !== "cancel" && <Btn size="sm" onClick={() => cancel(r.id, r.noInvoice)}>Batal</Btn>}
+                  </div>
+                </Td>
               </tr>
             ))}
           </tbody>
         </TableShell>
-        {rows.length === 0 && <Empty text="Belum ada invoice periode ini. Klik Generate." />}
+        {loading && <p className="px-4 py-6 text-center text-sm text-slate-400">Memuat data…</p>}
+        {!loading && rows.length === 0 && <Empty text="Belum ada invoice periode ini. Klik Generate." />}
       </Card>
     </AppShell>
   );

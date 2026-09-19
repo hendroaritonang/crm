@@ -19,6 +19,7 @@ export default function IpPage() {
   const [subnetId, setSubnetId] = useState("");
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState<Ip[]>([]);
+  const [loading, setLoading] = useState(false);
   const [cidr, setCidr] = useState("");
   const [nama, setNama] = useState("");
   const [msg, setMsg] = useState("");
@@ -37,9 +38,11 @@ export default function IpPage() {
 
   async function loadIps() {
     if (!subnetId) return;
+    setLoading(true);
     const r = await fetch(`/api/ip?subnetId=${subnetId}&status=${status}&limit=200`);
     const j = await r.json();
     if (j.data) setRows(j.data);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -101,12 +104,45 @@ export default function IpPage() {
     loadIps();
   }
 
+  async function reserve(id: number) {
+    const r = await fetch(`/api/ip/${id}/reserve`, { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    setMsg(r.ok ? "IP di-reserve" : `Gagal: ${j.message}`);
+    loadIps();
+  }
+
+  async function release(id: number) {
+    const r = await fetch(`/api/ip/${id}/reserve`, { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    setMsg(r.ok ? "IP kembali available" : `Gagal: ${j.message}`);
+    loadIps();
+    loadSubnets();
+  }
+
+  async function deleteSubnet() {
+    if (!subnetId) return;
+    const s = subnets.find((x) => String(x.id) === subnetId);
+    if (!confirm(`Hapus subnet ${s?.cidr}? Hanya bisa jika semua IP available.`)) return;
+    const r = await fetch(`/api/subnet/${subnetId}`, { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    setMsg(r.ok ? "Subnet terhapus" : `Gagal: ${j.message}`);
+    if (r.ok) {
+      setSubnetId("");
+      loadSubnets();
+    }
+  }
+
   return (
     <AppShell>
       <PageHeader
         title="IP & Subnet"
         subtitle="Tambah subnet CIDR, assign IP ke pelanggan, anti double-assign"
-        actions={subnetId && <LinkBtn href={`/api/ip/export?subnetId=${subnetId}`} variant="secondary" size="sm"><Download size={14} /> Export CSV</LinkBtn>}
+        actions={
+          <div className="flex gap-2">
+            {subnetId && <Btn size="sm" variant="danger" onClick={deleteSubnet}>Hapus Subnet</Btn>}
+            {subnetId && <LinkBtn href={`/api/ip/export?subnetId=${subnetId}`} variant="secondary" size="sm"><Download size={14} /> Export CSV</LinkBtn>}
+          </div>
+        }
       />
       <div className="grid items-start gap-4 xl:grid-cols-3">
         <div className="space-y-4">
@@ -184,17 +220,21 @@ export default function IpPage() {
                   <Td><Badge value={r.status} /></Td>
                   <Td className="text-slate-600">{r.pelanggan ? <span><b>{r.pelanggan.kode}</b> {r.pelanggan.nama}</span> : <span className="text-slate-300">—</span>}</Td>
                   <Td>
-                    {r.status === "available" ? (
-                      <Btn size="sm" variant="primary" onClick={() => { setAssignTarget(r); setCustQ(""); setCustRows([]); setMsg(""); }}>Assign</Btn>
-                    ) : (
-                      <Btn size="sm" onClick={() => unassign(r.id, r.address)}>Unassign</Btn>
-                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {(r.status === "available" || r.status === "reserved") && (
+                        <Btn size="sm" variant="primary" onClick={() => { setAssignTarget(r); setCustQ(""); setCustRows([]); setMsg(""); }}>Assign</Btn>
+                      )}
+                      {r.status === "available" && <Btn size="sm" onClick={() => reserve(r.id)}>Reserve</Btn>}
+                      {r.status === "reserved" && <Btn size="sm" onClick={() => release(r.id)}>Release</Btn>}
+                      {r.status === "assigned" && <Btn size="sm" onClick={() => unassign(r.id, r.address)}>Unassign</Btn>}
+                    </div>
                   </Td>
                 </tr>
               ))}
             </tbody>
           </TableShell>
-          {rows.length === 0 && <Empty text="Tidak ada IP pada filter ini." />}
+          {loading && <p className="px-4 py-6 text-center text-sm text-slate-400">Memuat data…</p>}
+          {!loading && rows.length === 0 && <Empty text="Tidak ada IP pada filter ini." />}
         </Card>
       </div>
 

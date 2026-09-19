@@ -22,15 +22,18 @@ function PelangganInner() {
   const initialQ = useSearchParams().get("q") ?? "";
   const [q, setQ] = useState(initialQ);
   const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
   const [nama, setNama] = useState("");
   const [hp, setHp] = useState("");
   const [alamat, setAlamat] = useState("");
   const [msg, setMsg] = useState("");
 
   async function load(query?: string) {
+    setLoading(true);
     const r = await fetch(`/api/pelanggan?q=${encodeURIComponent(query ?? q)}&limit=50`);
     const j = await r.json();
     if (j.data) setRows(j.data);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -112,7 +115,8 @@ function PelangganInner() {
               ))}
             </tbody>
           </TableShell>
-          {rows.length === 0 && <Empty text="Tidak ada data. Tambahkan pelanggan baru atau ubah kata kunci." />}
+          {loading && <p className="px-4 py-6 text-center text-sm text-slate-400">Memuat data…</p>}
+          {!loading && rows.length === 0 && <Empty text="Tidak ada data. Tambahkan pelanggan baru atau ubah kata kunci." />}
         </Card>
       </div>
     </AppShell>

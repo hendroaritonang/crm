@@ -59,7 +59,7 @@ export async function PUT(
       hp: parsed.data.hp,
       alamat: parsed.data.alamat,
       status: parsed.data.status as never,
-      paketId: parsed.data.paket_id ?? undefined,
+      ...(parsed.data.paket_id !== undefined ? { paketId: parsed.data.paket_id } : {}),
       catatan: parsed.data.catatan ?? undefined,
     },
   });

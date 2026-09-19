@@ -11,14 +11,17 @@ import {
   FilePlus2,
   LayoutDashboard,
   LogOut,
+  Menu,
   Network,
   Plus,
   ScrollText,
   Search,
+  Server,
   Ticket,
   Users,
   Wallet,
   Wifi,
+  X,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -38,6 +41,7 @@ const SECTIONS = [
     items: [
       { href: "/ip", label: "Networking", icon: Network },
       { href: "/mrtg", label: "Monitoring", icon: Activity },
+      { href: "/perangkat", label: "Routers", icon: Server },
       { href: "/paket", label: "Tariff plans", icon: FilePlus2 },
     ],
   },
@@ -60,7 +64,15 @@ export function Sidebar() {
   const pathname = usePathname();
   return (
     <aside className="flex w-60 shrink-0 flex-col overflow-y-auto rounded-r-3xl border-r border-slate-200/70 bg-white max-md:hidden">
-      <Link href="/" className="flex items-center gap-2 px-5 pb-5 pt-6">
+      <SidebarBody pathname={pathname} />
+    </aside>
+  );
+}
+
+function SidebarBody({ pathname, onNav }: { pathname: string; onNav?: () => void }) {
+  return (
+    <>
+      <Link href="/" onClick={onNav} className="flex items-center gap-2 px-5 pb-5 pt-6">
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-600 text-white">
           <Wifi size={19} strokeWidth={2.5} />
         </span>
@@ -71,6 +83,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-4 px-3 pb-6">
         <Link
           href="/"
+          onClick={onNav}
           className={clsx(
             "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
             isActive(pathname, "/") ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"
@@ -91,6 +104,7 @@ export function Sidebar() {
                 <Link
                   key={it.href}
                   href={it.href}
+                  onClick={onNav}
                   className={clsx(
                     "mb-0.5 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                     active ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-600 hover:bg-slate-50"
@@ -104,7 +118,7 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-    </aside>
+    </>
   );
 }
 
@@ -115,7 +129,7 @@ const QUICK_ADD = [
   { href: "/billing", label: "Generate invoice" },
 ];
 
-export function Topbar() {
+export function Topbar({ onMenu }: { onMenu?: () => void }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [me, setMe] = useState<{ name: string; role: string } | null>(null);
@@ -141,6 +155,11 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-slate-200/70 bg-white/95 px-5 py-3 backdrop-blur">
+      {onMenu && (
+        <button onClick={onMenu} title="Menu" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 md:hidden">
+          <Menu size={19} />
+        </button>
+      )}
       <form
         className="relative hidden w-full max-w-md sm:block"
         onSubmit={(e) => {
@@ -208,11 +227,29 @@ export function Topbar() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [drawer, setDrawer] = useState(false);
+
+  useEffect(() => {
+    setDrawer(false);
+  }, [pathname]);
+
   return (
     <div className="flex min-h-screen gap-0 bg-[#eef1f6]">
       <Sidebar />
+      {drawer && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setDrawer(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col overflow-y-auto rounded-r-3xl bg-white shadow-2xl">
+            <button onClick={() => setDrawer(false)} title="Tutup" className="absolute right-3 top-5 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
+              <X size={17} />
+            </button>
+            <SidebarBody pathname={pathname} onNav={() => setDrawer(false)} />
+          </aside>
+        </div>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+        <Topbar onMenu={() => setDrawer(true)} />
         <main className="flex-1 p-5">{children}</main>
       </div>
     </div>

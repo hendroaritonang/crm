@@ -30,7 +30,7 @@ export async function POST(
           new Error(`IP ${ip.address} sudah dipakai pelanggan #${ip.pelangganId}`),
           { code: 409 }
         );
-      if (ip.status !== "available")
+      if (ip.status !== "available" && ip.status !== "reserved")
         throw Object.assign(
           new Error(`IP ${ip.address} status ${ip.status}, tidak bisa di-assign`),
           { code: 409 }

@@ -191,8 +191,8 @@ export function Th({ children, className }: { children: ReactNode; className?: s
   );
 }
 
-export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={clsx("border-t border-slate-100 px-4 py-2.5 align-middle", className)}>{children}</td>;
+export function Td({ children, className, colSpan }: { children: ReactNode; className?: string; colSpan?: number }) {
+  return <td colSpan={colSpan} className={clsx("border-t border-slate-100 px-4 py-2.5 align-middle", className)}>{children}</td>;
 }
 
 /* ---------- Empty / misc ---------- */

@@ -172,6 +172,17 @@ function TabInfo({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg:
     if (r.ok) reload();
   }
 
+  async function remove() {
+    if (!confirm(`Hapus pelanggan ${d.kode}? Harus lepas semua IP dulu.`)) return;
+    const r = await fetch(`/api/pelanggan/${d.id}`, { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setMsg(`Gagal: ${j.message}`);
+      return;
+    }
+    window.location.href = "/pelanggan";
+  }
+
   return (
     <Card className="max-w-2xl">
       <CardHeader title="Data Pelanggan" subtitle="Perubahan tercatat di audit log" />
@@ -191,7 +202,10 @@ function TabInfo({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg:
           </Select>
         </Field>
         <Field label="Catatan"><Textarea rows={2} value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} /></Field>
-        <div className="sm:col-span-2"><Btn variant="primary" type="submit">Simpan Perubahan</Btn></div>
+        <div className="flex gap-2 sm:col-span-2">
+          <Btn variant="primary" type="submit">Simpan Perubahan</Btn>
+          <Btn variant="danger" type="button" onClick={remove}>Hapus Pelanggan</Btn>
+        </div>
       </form>
     </Card>
   );
@@ -203,9 +217,9 @@ function TabIp({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (
   const [found, setFound] = useState<{ id: number; address: string }[]>([]);
 
   async function search() {
-    const r = await fetch(`/api/ip?status=available&q=${encodeURIComponent(q)}&limit=20`);
-    const j = await r.json();
-    if (j.data) setFound(j.data);
+    const avail = await fetch(`/api/ip?status=available&q=${encodeURIComponent(q)}&limit=20`).then((r) => r.json()).catch(() => ({}));
+    const reserv = await fetch(`/api/ip?status=reserved&q=${encodeURIComponent(q)}&limit=20`).then((r) => r.json()).catch(() => ({}));
+    setFound([...(avail.data ?? []), ...(reserv.data ?? [])]);
   }
 
   async function assign(ipId: number) {
@@ -322,6 +336,11 @@ function TabTagihan({ d, reload }: { d: Detail; reload: () => void }) {
     await fetch(`/api/invoice/${id}/lunas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
     reload();
   }
+  async function cancel(id: number, no: string) {
+    if (!confirm(`Batalkan ${no}?`)) return;
+    await fetch(`/api/invoice/${id}/cancel`, { method: "POST" });
+    reload();
+  }
   return (
     <Card>
       <CardHeader title={`Tagihan (${d.invoices.length})`} subtitle="Generate invoice dari menu Billing" />
@@ -334,7 +353,12 @@ function TabTagihan({ d, reload }: { d: Detail; reload: () => void }) {
               <Td>{i.periode}</Td>
               <Td className="font-semibold">Rp{i.jumlah.toLocaleString("id-ID")}</Td>
               <Td><Badge value={i.status} /></Td>
-              <Td>{i.status !== "paid" && <Btn size="sm" variant="success" onClick={() => lunas(i.id, i.noInvoice)}>Lunas</Btn>}</Td>
+              <Td>
+                <div className="flex gap-1.5">
+                  {i.status !== "paid" && i.status !== "cancel" && <Btn size="sm" variant="success" onClick={() => lunas(i.id, i.noInvoice)}>Lunas</Btn>}
+                  {i.status !== "paid" && i.status !== "cancel" && <Btn size="sm" onClick={() => cancel(i.id, i.noInvoice)}>Batal</Btn>}
+                </div>
+              </Td>
             </tr>
           ))}
         </tbody>
