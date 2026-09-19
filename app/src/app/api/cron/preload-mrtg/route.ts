@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { fetchMrtg } from "@/lib/mrtg";
+import { fetchPrtg, parsePrtgAuth } from "@/lib/prtg";
 import { decryptToken } from "@/lib/crypto";
 
 // GET /api/cron/preload-mrtg — dipanggil cron sistem tiap 5 menit.
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
   if (given !== secret) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const targets = await prisma.mrtgTarget.findMany({
-    where: { aktif: true, apiMode: "json" },
+    where: { aktif: true, apiMode: { in: ["json", "prtg"] } },
     orderBy: { id: "asc" },
     take: 200,
   });
@@ -32,7 +33,11 @@ export async function GET(req: Request) {
           token = undefined;
         }
       }
-      await fetchMrtg(t.baseUrl, t.targetIdMrtg, "daily", token);
+      if (t.apiMode === "prtg") {
+        await fetchPrtg(t.baseUrl, t.targetIdMrtg, "daily", parsePrtgAuth(token));
+      } else {
+        await fetchMrtg(t.baseUrl, t.targetIdMrtg, "daily", token);
+      }
       ok++;
     } catch {
       failed++;

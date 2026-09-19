@@ -52,7 +52,7 @@ export const MrtgLinkSchema = z.object({
   target_id_mrtg: z.string().min(1).max(150),
   perangkat_id: z.number().int().positive().optional(),
   interface_name: z.string().max(100).optional(),
-  api_mode: z.enum(["json", "png"]).default("json"),
+  api_mode: z.enum(["json", "png", "prtg"]).default("json"),
   base_url: z.string().url(),
   auth_token: z.string().max(500).optional(),
   png_url_template: z.string().max(500).optional(),

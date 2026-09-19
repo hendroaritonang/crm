@@ -278,19 +278,25 @@ function TabIp({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (
 /* ---------- Tab Grafik ---------- */
 function TabGrafik({ d, reload, setMsg }: { d: Detail; reload: () => void; setMsg: (s: string) => void }) {
   const [ipId, setIpId] = useState(d.ips[0] ? String(d.ips[0].id) : "");
+  const [mode, setMode] = useState("prtg");
   const [target, setTarget] = useState("");
   const [token, setToken] = useState("");
-  const [baseUrl, setBaseUrl] = useState("https://mrtg.internal/api");
+  const [prtgUser, setPrtgUser] = useState("");
+  const [baseUrl, setBaseUrl] = useState("https://prtg.local");
 
   async function link(e: React.FormEvent) {
     e.preventDefault();
+    const authToken =
+      mode === "prtg" && (prtgUser || token)
+        ? JSON.stringify({ username: prtgUser || undefined, passhash: token || undefined })
+        : token || undefined;
     const r = await fetch("/api/mrtg/link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ip_address_id: Number(ipId), target_id_mrtg: target, base_url: baseUrl, api_mode: "json", ...(token ? { auth_token: token } : {}) }),
+      body: JSON.stringify({ ip_address_id: Number(ipId), target_id_mrtg: target, base_url: baseUrl, api_mode: mode, ...(authToken ? { auth_token: authToken } : {}) }),
     });
-    const j = await r.json();
-    setMsg(r.ok ? "IP terhubung ke MRTG" : j.message ?? "Gagal");
+    const j = await r.json().catch(() => ({}));
+    setMsg(r.ok ? "IP terhubung" : `Gagal: ${j.message ?? "unknown"}`);
     if (r.ok) reload();
   }
 
@@ -305,13 +311,27 @@ function TabGrafik({ d, reload, setMsg }: { d: Detail; reload: () => void; setMs
   return (
     <div className="grid gap-4">
       <Card>
-        <CardHeader title="Hubungkan ke MRTG" subtitle="Token disimpan terenkripsi, tidak tampil lagi setelah disimpan" />
-        <form onSubmit={link} className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5">
+        <CardHeader title="Hubungkan ke Monitoring" subtitle="PRTG: isi sensor ID + user read-only + passhash. Kredensial disimpan terenkripsi." />
+        <form onSubmit={link} className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="IP"><Select value={ipId} onChange={(e) => setIpId(e.target.value)}>{d.ips.map((i) => <option key={i.id} value={i.id}>{i.address}</option>)}</Select></Field>
-          <Field label="Target ID di MRTG"><Input placeholder="103.147.9.45" value={target} onChange={(e) => setTarget(e.target.value)} required /></Field>
-          <Field label="Base URL" className="lg:col-span-2"><Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required /></Field>
-          <Field label="Token (opsional)"><Input type="password" placeholder="••••••" value={token} onChange={(e) => setToken(e.target.value)} /></Field>
-          <div className="flex items-end sm:col-span-2 lg:col-span-5"><Btn variant="primary" type="submit"><Link2 size={15} /> Hubungkan</Btn></div>
+          <Field label="Sumber data">
+            <Select value={mode} onChange={(e) => { setMode(e.target.value); setBaseUrl(e.target.value === "prtg" ? "https://prtg.local" : "https://mrtg.internal/api"); }}>
+              <option value="prtg">PRTG (sensor ID)</option>
+              <option value="json">MRTG Generic JSON</option>
+              <option value="png">MRTG PNG lawas</option>
+            </Select>
+          </Field>
+          <Field label={mode === "prtg" ? "Sensor ID PRTG (angka)" : "Target ID"}><Input placeholder={mode === "prtg" ? "2041" : "103.147.9.45"} value={target} onChange={(e) => setTarget(e.target.value)} required /></Field>
+          <Field label="Base URL" className="lg:col-span-2"><Input placeholder={mode === "prtg" ? "https://prtg.kantor.lan" : "https://mrtg.internal/api"} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required /></Field>
+          {mode === "prtg" ? (
+            <>
+              <Field label="PRTG username (read-only)"><Input placeholder="crm-reader" value={prtgUser} onChange={(e) => setPrtgUser(e.target.value)} /></Field>
+              <Field label="Passhash / API token"><Input type="password" placeholder="•••••• (lihat panduan PRTG)" value={token} onChange={(e) => setToken(e.target.value)} /></Field>
+            </>
+          ) : (
+            <Field label="Token (opsional)"><Input type="password" placeholder="••••••" value={token} onChange={(e) => setToken(e.target.value)} /></Field>
+          )}
+          <div className="flex items-end sm:col-span-2 lg:col-span-3"><Btn variant="primary" type="submit"><Link2 size={15} /> Hubungkan</Btn></div>
         </form>
       </Card>
       {linked.length === 0 && <Card><Empty text="Belum ada IP yang terhubung ke MRTG." /></Card>}

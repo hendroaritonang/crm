@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { fetchMrtg } from "@/lib/mrtg";
+import { fetchPrtg, parsePrtgAuth } from "@/lib/prtg";
 import { requireApiUser } from "@/lib/auth";
 import { decryptToken } from "@/lib/crypto";
 
@@ -52,6 +53,43 @@ export async function GET(
         token = undefined;
       }
     }
+
+    // Mode PRTG: tarik historicdata langsung
+    if (target.apiMode === "prtg") {
+      try {
+        const payload = await fetchPrtg(target.baseUrl, target.targetIdMrtg, period, parsePrtgAuth(token));
+        await prisma.mrtgTarget.update({
+          where: { id: target.id },
+          data: { lastFetchedAt: new Date(), lastError: null },
+        });
+        const last = payload.data[payload.data.length - 1];
+        return NextResponse.json({
+          target_id: target.id,
+          ip: target.ip.address,
+          pelanggan: target.pelanggan,
+          period,
+          cached: false,
+          stale: false,
+          fetched_at: payload.updated_at,
+          summary: {
+            current_in_bps: last?.in_bps ?? 0,
+            current_out_bps: last?.out_bps ?? 0,
+          },
+          data: payload.data,
+        });
+      } catch (e) {
+        const message = (e as Error).message;
+        await prisma.mrtgTarget.update({
+          where: { id: target.id },
+          data: { lastError: message },
+        });
+        return NextResponse.json(
+          { message, code: "PRTG_DOWN" },
+          { status: 502 }
+        );
+      }
+    }
+
     const { payload, cached, stale } = await fetchMrtg(
       target.baseUrl,
       target.targetIdMrtg,
